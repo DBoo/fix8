@@ -1058,7 +1058,7 @@ void MainWindow::addWorkSheet(WorkSheetData &wsd)
     tabW->setToolTip(wsd.fileName);
     tabW->setCurrentWidget(workSheet);
     stackW->setCurrentWidget(workAreaSplitter);
-    workSheet->setUpdatesEnabled(false);
+    //workSheet->setUpdatesEnabled(false);
     bstatus = workSheet->loadFileName(wsd.fileName,messageList,returnStatus);
     if (!bstatus) {
         if (returnStatus == WorkSheet::TERMINATED) {

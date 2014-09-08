@@ -48,6 +48,7 @@ HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
 #include "intItem.h"
 #include "messagearea.h"
 #include "tableschema.h"
+#include "threadloader.h"
 #include "worksheetmodel.h"
 #include <QDebug>
 #include <QMap>
@@ -58,6 +59,7 @@ HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
 #include <fix8/f8includes.hpp>
 #include <fix8/field.hpp>
 #include <fix8/message.hpp>
+
 using namespace FIX8;
 
 
@@ -67,6 +69,8 @@ WorkSheet::WorkSheet(QWidget *parent ) : QWidget(parent),
 {
     build();
     _model = new WorkSheetModel(this);
+    _model->setWorkSheet(this);
+    connect(_model,SIGNAL(updateTable()),this,SLOT(updateTableSlot()),Qt::DirectConnection);
     fixTable->setWorkSheetModel(_model);
     sm = fixTable->selectionModel();
     fixTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -100,6 +104,8 @@ bool WorkSheet::copyFrom(WorkSheet &oldws)
     if (oldModel) {
         showLoadProcess(true,oldModel->rowCount());
         _model = oldModel->clone(cancelLoad);
+        connect(_model,SIGNAL(updateTable()),this,SLOT(updateTableSlot()),Qt::DirectConnection);
+
         if(!_model || cancelLoad) {
             //emit terminateCopy(this);
             showLoadProcess(false);
@@ -148,7 +154,9 @@ WorkSheet::WorkSheet(WorkSheetModel *model,
     currentRow(-1)
 
 {
+
     build();
+    qDebug() << "DO IEVER USE THIS ROUTINE FOR CREATING A WORK SHEET" << __FILE__ << __LINE__;
     _model = model;
     fixTable->setWorkSheetModel(_model);
     //dateTimeDelegate = new DateTimeDelegate(this);
@@ -365,6 +373,8 @@ bool WorkSheet::loadFileName(QString &fileName,
     QFile dataFile(fileName);
     cancelReason = OK; // clear cancel reason
     qApp->processEvents(QEventLoop::ExcludeSocketNotifiers,5);
+    setUpdatesEnabled(false);
+
     bstatus =  dataFile.open(QIODevice::ReadOnly);
     if (!bstatus) {
         GUI::ConsoleMessage message(tr("Failed to open file: ") + fileName);
@@ -379,7 +389,7 @@ bool WorkSheet::loadFileName(QString &fileName,
         ba = dataFile.readLine();
         linecount++;
     }
-    showLoadProcess(true,linecount);
+    //showLoadProcess(true,linecount);
     dataFile.seek(0);
     int i=0;
     QElapsedTimer myTimer;
@@ -388,7 +398,6 @@ bool WorkSheet::loadFileName(QString &fileName,
 
 
     myTimer.start();
-    setUpdatesEnabled(false);
     QMap <QString, qint32> senderMap; // <sender id, numofoccurances>
     messageList = new QMessageList();
     while(!dataFile.atEnd()) {
@@ -485,12 +494,14 @@ bool WorkSheet::loadFileName(QString &fileName,
     showAllSendersA = new QAction("Show All",this);
     senderActionGroup->addAction(showAllSendersA);
     senderMenu->addAction(showAllSendersA);
+    fixTable->setSortingEnabled(false);
     _model->setMessageList(messageList,cancelLoad);
+    fixTable->setSortingEnabled(true);
+
     qstr = QString::number(_model->rowCount()) + tr(" Messages were read from file: ") + fileName;
     msgList.append(GUI::ConsoleMessage(qstr));
     setUpdatesEnabled(true);
-
-    showLoadProcess(false);
+ //   showLoadProcess(false);
     returnCode = OK;
     qDebug() << "Elapsed time of load = " << myTimer.elapsed() << __FILE__ << __LINE__;
 
@@ -726,4 +737,27 @@ void WorkSheet::setSharedLib(Fix8SharedLib *f8sl)
 {
     sharedLib = f8sl;
     messageArea->setSharedLib(sharedLib);
+}
+void WorkSheet::updateTable()
+{
+    //qDebug() << "WORK SHEET UPDATE TABLE " << __FILE__ << __LINE__;
+    fixTable->update();
+
+}
+
+void WorkSheet::updateTableSlot()
+{
+    //qDebug() << "Update Table Slot..." << __FILE__ << __LINE__;
+    //setUpdatesEnabled(true);
+
+     if (stackLayout->currentIndex() != 0)
+        stackLayout->setCurrentIndex(0);
+     update();
+
+}
+void WorkSheet::threadLoaderFinishedSlot()
+{
+    QThread *thrd = thread();
+    _model->moveToThread(thrd);
+    qDebug() << "THREADER FINISHED" << __FILE__ << __LINE__;
 }

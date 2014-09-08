@@ -70,6 +70,7 @@ FixTable::FixTable(QUuid &wid, QUuid &wsid,QWidget *p):
     filterMode(WorkSheetData::Off),filterFunction(0),fieldUsePairList(0)
 
 {
+    scheduleDelayedItemsLayout();
     proxyFilter = new ProxyFilter(this);
     proxyFilter->setSortRole(Qt::UserRole +1 );
     showAnouncement= false;
@@ -213,8 +214,11 @@ void FixTable::timerEvent(QTimerEvent *te)
     }
     else if  (te->timerId() == noDataTimerID) {
         alpha = alpha + 15;
-        if (alpha > 250)
+        if (alpha > 250) {
             killTimer(noDataTimerID);
+            noDataTimerID = -1;
+        }
+
         if (alpha > 255)
             alpha = 255;
         emptyAlphaFG.setAlpha(alpha);

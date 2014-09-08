@@ -46,6 +46,7 @@ HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
 #include "messagearea.h"
 #include "messagefield.h"
 #include "searchfunction.h"
+#include "threadloader.h"
 #include "worksheetdata.h"
 class Fix8SharedLib;
 class TableSchema;
@@ -81,7 +82,7 @@ public:
     void setFilterMode(WorkSheetData::FilterMode);
     void setFieldUsePair(const QList<QPair<QString ,FieldUse *>> *fup);
     void setSearchFunction(const SearchFunction &);
-
+    void updateTable();
     SearchFunction &getSearchFunction();
     void setWindowID( QUuid &);
     void setMessageAreaExpansion(MessageArea::TreeItem, bool expanded);
@@ -126,8 +127,10 @@ public slots:
     void popupHeaderMenuSlot(int col,const QPoint &);
     void rowSelectedSlot(QModelIndex);
     void timeFormatSelectedSlot(QAction *);
+    void updateTableSlot();
     void modelDroppedSlot(FixMimeData *);
     void senderActionGroupSlot(QAction *);
+    void threadLoaderFinishedSlot();
 protected:
     QSplitter *splitter;
     FixTable *fixTable;
@@ -168,6 +171,7 @@ private:
     WorkSheetData::FilterMode filterMode;
     Fix8SharedLib *sharedLib;
     const QList<QPair<QString ,FieldUse *>> *fieldUsePairList;
+    ThreadLoader *threadLoader;
 };
 
 class WorkSheetList : public QList <WorkSheet *>

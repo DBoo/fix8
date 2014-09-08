@@ -137,7 +137,6 @@ private:
     bool createSharedLib(QString &fix8sharedlib,Fix8SharedLib **fixlib,
                           TableSchema *defaultTableSchema);
     void initDatabase();
-    std::function<const F8MetaCntx&()> loadFix8so(QString libName, bool &bstatus);
     SearchDialog *searchDialog;
     SearchDialog *filterDialog;
 

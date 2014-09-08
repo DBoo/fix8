@@ -153,7 +153,7 @@ void MainWindow::fileSelectionFinishedSlot(int returnCode)
         tabW->setCurrentWidget(workSheet);
         stackW->setCurrentWidget(workAreaSplitter);
         quint32 returnStatus = 0;
-        workSheet->setUpdatesEnabled(false);
+        //workSheet->setUpdatesEnabled(false);
         setCursor(Qt::BusyCursor);
 
         bstatus = workSheet->loadFileName(fileName,messageList,returnStatus);
@@ -262,7 +262,7 @@ void MainWindow::loadFile(QString &fileName)
     tabW->setCurrentWidget(workSheet);
     stackW->setCurrentWidget(workAreaSplitter);
     quint32 returnStatus = 0;
-    workSheet->setUpdatesEnabled(false);
+    //workSheet->setUpdatesEnabled(false);
     setCursor(Qt::BusyCursor);
 
     bstatus = workSheet->loadFileName(fileName,messageList,returnStatus);

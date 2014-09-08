@@ -53,16 +53,22 @@ NewWindowSchemaPage::NewWindowSchemaPage(Fix8SharedLibList &shareLibs,QWidget *p
     legend->setText("\u002aSystem Library");
 #endif
     infoView = new QQuickView(QUrl("qrc:qml/schemaLocation.qml"));
-     QQmlContext *dc = infoView->rootContext();
-     dc->setContextProperty("backgroundcolor",
+    QQmlContext *dc = infoView->rootContext();
+   /*
+    dc->setContextProperty("backgroundcolor",
                                       palette().color(QPalette::Window));
 
+*/
     QQuickItem  *qmlObject = infoView->rootObject();
-    qmlObject->setProperty("backgroundcolor",QColor("red"));
+    qmlObject->setProperty("color",palette().color(QPalette::Window));
     infoView->setResizeMode(QQuickView::SizeRootObjectToView);
     infoWidget = QWidget::createWindowContainer(infoView,this);
 
     systemDirName = qApp->applicationDirPath() + "/fixschemas";
+     QVariant returnedValue;
+    qmlObject->setProperty("systemDir",systemDirName);
+    //QMetaObject::invokeMethod (dc, "setSystemDirName", Q_RETURN_ARG(QVariant, returnedValue),
+    //                            Q_ARG(QVariant,systemDirName));
     userDirName = QDir::homePath() + "/f8logview/fixschemas";
     schemaGrid->addLayout(schemaStack,0,0);
     schemaGrid->addWidget(legend,1,0,Qt::AlignLeft);
@@ -107,7 +113,6 @@ bool NewWindowSchemaPage::loadSchemas(Fix8SharedLib::LibType libType)
     while(iter.hasNext()) {
         QString baseName;
         fi = iter.next();
-        qDebug() << "FILE PATH + " << fi.absoluteFilePath() << __FILE__ << __LINE__;
         baseName = fi.baseName();
         QString name;
 

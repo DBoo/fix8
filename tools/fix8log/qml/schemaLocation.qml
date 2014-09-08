@@ -8,6 +8,11 @@ Rectangle {
     color: backgroundcolor
     width: 600
     height: 550
+    property string systemDir:"unknown"
+    function setSystemDirName(name)
+    {
+        systemDir = name;
+    }
 
     Rectangle {
         id: rectangle1
@@ -79,7 +84,7 @@ Rectangle {
                     id: system
                     Layout.preferredWidth: 355
                     Layout.minimumHeight: 60
-                    text: qsTr("<i>Fix8logviewer</i> ships with some of the common FIX Schemas. These schemas are located in.")
+                    text: qsTr("<i>Fix8logviewer</i> ships with some of the common FIX Schemas. These schemas are located in " + aboutSchemas.systemDir)
                     clip: true
 
                     font.pixelSize: 16

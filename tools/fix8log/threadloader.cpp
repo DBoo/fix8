@@ -1,145 +1,17 @@
-//-------------------------------------------------------------------------------------------------
-/*
-Fix8logviewer is released under the GNU LESSER GENERAL PUBLIC LICENSE Version 3.
-
-Fix8logviewer Open Source FIX Log Viewer.
-Copyright (C) 2010-14 David N Boosalis dboosalis@fix8.org, David L. Dight <fix@fix8.org>
-
-Fix8logviewer is free software: you can  redistribute it and / or modify  it under the  terms of the
-GNU Lesser General  Public License as  published  by the Free  Software Foundation,  either
-version 3 of the License, or (at your option) any later version.
-
-Fix8logviewer is distributed in the hope  that it will be useful, but WITHOUT ANY WARRANTY;  without
-even the  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-
-You should  have received a copy of the GNU Lesser General Public  License along with Fix8.
-If not, see <http://www.gnu.org/licenses/>.
-
-BECAUSE THE PROGRAM IS  LICENSED FREE OF  CHARGE, THERE IS NO  WARRANTY FOR THE PROGRAM, TO
-THE EXTENT  PERMITTED  BY  APPLICABLE  LAW.  EXCEPT WHEN  OTHERWISE  STATED IN  WRITING THE
-COPYRIGHT HOLDERS AND/OR OTHER PARTIES  PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY OF ANY
-KIND,  EITHER EXPRESSED   OR   IMPLIED,  INCLUDING,  BUT   NOT  LIMITED   TO,  THE  IMPLIED
-WARRANTIES  OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.  THE ENTIRE RISK AS TO
-THE QUALITY AND PERFORMANCE OF THE PROGRAM IS WITH YOU. SHOULD THE PROGRAM PROVE DEFECTIVE,
-YOU ASSUME THE COST OF ALL NECESSARY SERVICING, REPAIR OR CORRECTION.
-
-IN NO EVENT UNLESS REQUIRED  BY APPLICABLE LAW  OR AGREED TO IN  WRITING WILL ANY COPYRIGHT
-HOLDER, OR  ANY OTHER PARTY  WHO MAY MODIFY  AND/OR REDISTRIBUTE  THE PROGRAM AS  PERMITTED
-ABOVE,  BE  LIABLE  TO  YOU  FOR  DAMAGES,  INCLUDING  ANY  GENERAL, SPECIAL, INCIDENTAL OR
-CONSEQUENTIAL DAMAGES ARISING OUT OF THE USE OR INABILITY TO USE THE PROGRAM (INCLUDING BUT
-NOT LIMITED TO LOSS OF DATA OR DATA BEING RENDERED INACCURATE OR LOSSES SUSTAINED BY YOU OR
-THIRD PARTIES OR A FAILURE OF THE PROGRAM TO OPERATE WITH ANY OTHER PROGRAMS), EVEN IF SUCH
-HOLDE
-*/
-//-------------------------------------------------------------------------------------------------
-#include "worksheetmodel.h"
-#include"worksheet.h"
+#include "threadloader.h"
 #include "intItem.h"
-#include <fix8/f8includes.hpp>
-#include "fix8/field.hpp"
-#include "fix8/message.hpp"
-using namespace FIX8;
-#include <QApplication>
-#include <QElapsedTimer>
 #include <QDebug>
-#include <QtConcurrent>
-#include <QFuture>
-#include <QList>
 
-int WorkSheetModel::senderIDRole = Qt::UserRole+2;
-
-
-
-WorkSheetModel::WorkSheetModel(QWidget *parent) :
-    QStandardItemModel(parent),tableSchema(0),messageList(0),workSheet(0)
+ThreadLoader::ThreadLoader(TableSchema *ts,QMessageList *ms,
+                           WorkSheetModel *m,QObject *parent) :
+    QThread(parent),tableSchema(ts),messageList(ms),model(m)
 {
-
-
 }
-void WorkSheetModel::setWorkSheet(WorkSheet *ws)
+void ThreadLoader::run()
 {
-    workSheet = ws;
-}
-
-// cancel load happens from GUI, need to check here for long operations
-WorkSheetModel * WorkSheetModel::clone(const bool &cancelLoad)
-{
-    WorkSheetModel *wsm = new WorkSheetModel();
-    if (tableSchema)
-        wsm->setTableSchema(*tableSchema);
-    if (messageList) {
-        qDebug() << "1 SET MESSAGE LIST COUNT = " << messageList->count()  << __FILE__ << __LINE__;
-        QMessageList *newMessageList = messageList->clone(cancelLoad);
-        qDebug() << "2 SET MESSAGE LIST COUNT = " << messageList->count()  << __FILE__ << __LINE__;
-        if (cancelLoad) {
-            wsm->deleteLater();
-            wsm = 0;
-            return wsm;
-        }
-        if(newMessageList)
-            qDebug() << "\tNEW MESSAGE LIST COUNT " << newMessageList->count() << __FILE__ << __LINE__;
-        else
-            qDebug() << "\tNEW MESSAGE LIST IS NULL" << __FILE__ << __LINE__;
-        wsm->setMessageList(newMessageList,cancelLoad);
-    }
-    if(cancelLoad) {  // gui set this to cancel
-        qDebug() << "HAVE CANCEL LOAD" << __FILE__ << __LINE__;
-        wsm->deleteLater();
-        wsm = 0;
-    }
-    return wsm;
-}
-
-void WorkSheetModel::setTableSchema(TableSchema &ts)
-{
-    //TraitHelper tr;
-    tableSchema = &ts;
-    QStandardItem *hi;
-    QBaseEntryList *fieldList;
-    QBaseEntry *field;
-    clear();
-
-    if (!tableSchema || !tableSchema->fieldList) {
-        qWarning() << "Field List is null" << __FILE__ << __LINE__;
-        setColumnCount(0);
-        return;
-    }
-    if (tableSchema->fieldList->count() < 1)
-        qWarning() << "Field List is null" << __FILE__ << __LINE__;
-    setColumnCount(tableSchema->fieldList->count());
-    fieldList = tableSchema->fieldList;
-    QListIterator <QBaseEntry *> iter(*fieldList);
-    int i = 0;
-    while(iter.hasNext()) {
-        field = iter.next();
-        //qDebug() << ">>>>>>>>>" << field->ft->_fnum;
-        hi = new QStandardItem(field->name);
-        setHorizontalHeaderItem(i,hi);
-        i++;
-    }
-    bool fakeCancel = false;
-    if (messageList && messageList->count() > 0)
-        generateData(fakeCancel);
-}
-void WorkSheetModel::setMessageList( QMessageList *ml,const bool &cancelLoad)
-{
-    messageList = ml;
-    removeRows(0,rowCount());
-    if (!messageList) {
-        qWarning() << "Warning - messagelist == 0" << __FILE__ << __LINE__;
-        return;
-    }
-    generateData(cancelLoad);
-}
-QMessageList *WorkSheetModel::getMessageList()
-{
-    return messageList;
-}
-
-void WorkSheetModel::generateData(const bool &cancelLoad)
-{
-    static int numOfLineChecksCalled = 0;
-    static int numOfLines = 250;
+    typedef QList<QPersistentModelIndex> QPersistentModelIndex;
+    qRegisterMetaType <QPersistentModelIndex> ("QPersistentModelIndex");
+    int status;
     QString name;
     QString mbName;
     QMessage   *qmessage;
@@ -154,54 +26,20 @@ void WorkSheetModel::generateData(const bool &cancelLoad)
     int fieldID;
     int rowPos = 0;
     int colPos = 0;
-    setSortRole(Qt::UserRole);
-
-    if (!tableSchema) {
-        qWarning() << "Unable to generate data -  table schema is null" << __FILE__ << __LINE__;
-        return;
-    }
-    if (!tableSchema->fieldList) {
-        qWarning() << "Unable to generate data -  field list is null" << __FILE__ << __LINE__;
-        setColumnCount(0);
-        return;
-    }
-    if (!messageList) {
-        qWarning() << "Unable to generate data -  message list is null" << __FILE__ << __LINE__;
-        setRowCount(0);
-        return;
-    }
-
-    setColumnCount(tableSchema->fieldList->count());
+    bool modifyBackgroundColor;
+    model->moveToThread(this);
     QColor modBGColor; // = QColor(255,214,79,100);
     // This is a list of messages read in from file
     QListIterator <QMessage *> mIter(*messageList);
     // this is the fields user selected that they want displayed
     QListIterator <QBaseEntry *> tableHeaderIter(*(tableSchema->fieldList));
-    bool modifyBackgroundColor;
-    QElapsedTimer myTimer;
-    myTimer.start();
-    int messageCount = messageList->count();
-    setRowCount(messageCount);
-
     while(mIter.hasNext()) {
-        if (rowPos%numOfLines == 0) { // every 100 iterations allow gui to process events
-            numOfLineChecksCalled++;
-            if (numOfLineChecksCalled > 5)
-                numOfLines = 1000;
-            if (cancelLoad) {
-                qDebug() << "CANCEL LOAD IN GENERATE DATA " << __FILE__ << __LINE__;
-                return;
-            }
-            WorkSheet *w = qobject_cast <WorkSheet *> (parent());
-            if (w) {
-                w->setUpdatesEnabled(true);
-                w->updateTable();
-                w->update();
-                qApp->processEvents(QEventLoop::QEventLoop::WaitForMoreEvents,100);
-
-                w->setUpdatesEnabled(false);
-            }
+        if (rowPos%500 == 0) {
+            emit updateGUI();
+            //qApp->processEvents(QEventLoop::ExcludeSocketNotifiers,200);
+           ;// qApp->processEvents(QEventLoop::WaitForMoreEvents,200);
         }
+
         qmessage = mIter.next();
         QString senderID = qmessage->senderID;
 
@@ -235,11 +73,11 @@ void WorkSheetModel::generateData(const bool &cancelLoad)
                     //QStandardItem *intItem = new QStandardItem(QString::number(ival));
 
                     //intItem->setData(ival,Qt::UserRole);
-                    intItem->setData(senderID,senderIDRole);
+                    intItem->setData(senderID,WorkSheetModel::senderIDRole);
                     intItem->setData(var);
                     if (modifyBackgroundColor)
                         intItem->setData(modBGColor, Qt::BackgroundRole);
-                    setItem(rowPos,colPos,intItem);
+                    model->setItem(rowPos,colPos,intItem);
                     found = true;
                 }
 
@@ -255,11 +93,11 @@ void WorkSheetModel::generateData(const bool &cancelLoad)
                     bf->print(c);
                     QLatin1Literal ll(c);
                     QStandardItem *strItem = new QStandardItem(QString(ll));
-                    strItem->setData(senderID,senderIDRole);
+                    strItem->setData(senderID,WorkSheetModel::senderIDRole);
                     strItem->setData(var);
                     if (modifyBackgroundColor)
                         strItem->setData(modBGColor, Qt::BackgroundRole);
-                    setItem(rowPos,colPos,strItem);
+                    model->setItem(rowPos,colPos,strItem);
                     found = true;
 
                 }
@@ -267,11 +105,11 @@ void WorkSheetModel::generateData(const bool &cancelLoad)
                     QChar ch(static_cast<Field<char, 0>*>(bf)->get());
                     QString cstr = ch.decomposition();
                     QStandardItem *charItem = new QStandardItem(cstr);
-                    charItem->setData(senderID,senderIDRole);
+                    charItem->setData(senderID,WorkSheetModel::senderIDRole);
                     charItem->setData(var);
                     if (modifyBackgroundColor)
                         charItem->setData(modBGColor, Qt::BackgroundRole);
-                    setItem(rowPos,colPos,charItem);
+                    model->setItem(rowPos,colPos,charItem);
                     found = true;
 
                 }
@@ -286,11 +124,11 @@ void WorkSheetModel::generateData(const bool &cancelLoad)
                     int ival(static_cast<Field<int, 0>*>(bfm)->get());
                     //qDebug() << tableHeader->name << ", field id = " << fieldID << ", value = " << ival;
                     IntItem *intItem = new IntItem(ival);
-                    intItem->setData(senderID,senderIDRole);
+                    intItem->setData(senderID,WorkSheetModel::senderIDRole);
                     intItem->setData(var);
                     if (modifyBackgroundColor)
                         intItem->setData(modBGColor, Qt::BackgroundRole);
-                    setItem(rowPos,colPos,intItem);
+                    model->setItem(rowPos,colPos,intItem);
                     found = true;
 
                 }
@@ -304,22 +142,22 @@ void WorkSheetModel::generateData(const bool &cancelLoad)
                     memset(c,'\0',60);
                     bfm->print(c);
                     QStandardItem *strItem = new QStandardItem(QLatin1Literal(c));
-                    strItem->setData(senderID,senderIDRole);
+                    strItem->setData(senderID,WorkSheetModel::senderIDRole);
                     strItem->setData(var);
                     if (modifyBackgroundColor)
                         strItem->setData(modBGColor, Qt::BackgroundRole);
-                    setItem(rowPos,colPos,strItem);
+                    model->setItem(rowPos,colPos,strItem);
                     found = true;
                 }
                 else if (FieldTrait::is_char(ft)) {
                     QChar ch(static_cast<Field<char, 0>*>(bfm)->get());
                     QString cstr = ch.decomposition();
                     QStandardItem *charItem = new QStandardItem(cstr);
-                    charItem->setData(senderID,senderIDRole);
+                    charItem->setData(senderID,WorkSheetModel::senderIDRole);
                     charItem->setData(var);
                     if (modifyBackgroundColor)
                         charItem->setData(modBGColor, Qt::BackgroundRole);
-                    setItem(rowPos,colPos,charItem);
+                    model->setItem(rowPos,colPos,charItem);
                     found = true;
                 }
             }
@@ -342,11 +180,11 @@ void WorkSheetModel::generateData(const bool &cancelLoad)
                             int ival(static_cast<Field<int, 0>*>(bfg)->get());
                             //qDebug() << tableHeader->name << ", field id = " << fieldID << ", value = " << ival;
                             IntItem *intItem = new IntItem(ival);
-                            intItem->setData(senderID,senderIDRole);
+                            intItem->setData(senderID,WorkSheetModel::senderIDRole);
                             intItem->setData(var);
                             if (modifyBackgroundColor)
                                 intItem->setData(modBGColor, Qt::BackgroundRole);
-                            setItem(rowPos,colPos,intItem);
+                            model->setItem(rowPos,colPos,intItem);
                             found = true;
                         }
                         else if (FieldTrait::is_float(ft)) {
@@ -358,22 +196,22 @@ void WorkSheetModel::generateData(const bool &cancelLoad)
                             memset(c,'\0',60);
                             bfg->print(c);
                             QStandardItem *strItem = new QStandardItem(QLatin1Literal(c));
-                            strItem->setData(senderID,senderIDRole);
+                            strItem->setData(senderID,WorkSheetModel::senderIDRole);
                             strItem->setData(var);
                             if (modifyBackgroundColor)
                                 strItem->setData(modBGColor, Qt::BackgroundRole);
-                            setItem(rowPos,colPos,strItem);
+                            model->setItem(rowPos,colPos,strItem);
                             found = true;
                         }
                         else if (FieldTrait::is_char(ft)) {
                             QChar ch(static_cast<Field<char, 0>*>(bfm)->get());
                             QString cstr = ch.decomposition();
                             QStandardItem *charItem = new QStandardItem(cstr);
-                            charItem->setData(senderID,senderIDRole);
+                            charItem->setData(senderID,WorkSheetModel::senderIDRole);
                             charItem->setData(var);
                             if (modifyBackgroundColor)
                                 charItem->setData(modBGColor, Qt::BackgroundRole);
-                            setItem(rowPos,colPos,charItem);
+                            model->setItem(rowPos,colPos,charItem);
                             found = true;
                         }
                     }
@@ -391,11 +229,11 @@ void WorkSheetModel::generateData(const bool &cancelLoad)
                     if (FieldTrait::is_int(ft)) {
                         int ival(static_cast<Field<int, 0>*>(bft)->get());
                         IntItem *intItem = new IntItem(ival);
-                        intItem->setData(senderID,senderIDRole);
+                        intItem->setData(senderID,WorkSheetModel::senderIDRole);
                         intItem->setData(var);
                         if (modifyBackgroundColor)
                             intItem->setData(modBGColor, Qt::BackgroundRole);
-                        setItem(rowPos,colPos,intItem);
+                        model->setItem(rowPos,colPos,intItem);
                         found = true;
                     }
                     else if (FieldTrait::is_float(ft)) {
@@ -407,22 +245,22 @@ void WorkSheetModel::generateData(const bool &cancelLoad)
                         memset(c,'\0',60);
                         bft->print(c);
                         QStandardItem *strItem = new QStandardItem(QLatin1Literal(c));
-                        strItem->setData(senderID,senderIDRole);
+                        strItem->setData(senderID,WorkSheetModel::senderIDRole);
                         strItem->setData(var);
                         if (modifyBackgroundColor)
                             strItem->setData(modBGColor, Qt::BackgroundRole);
-                        setItem(rowPos,colPos,strItem);
+                        model->setItem(rowPos,colPos,strItem);
                         found = true;
                     }
                     else if (FieldTrait::is_char(ft)) {
                         QChar ch(static_cast<Field<char, 0>*>(bft)->get());
                         QString cstr = ch.decomposition();
                         QStandardItem *charItem = new QStandardItem(cstr);
-                        charItem->setData(senderID,senderIDRole);
+                        charItem->setData(senderID,WorkSheetModel::senderIDRole);
                         charItem->setData(var);
                         if (modifyBackgroundColor)
                             charItem->setData(modBGColor, Qt::BackgroundRole);
-                        setItem(rowPos,colPos,charItem);
+                        model->setItem(rowPos,colPos,charItem);
                         found = true;
                     }
                 }
@@ -433,16 +271,17 @@ void WorkSheetModel::generateData(const bool &cancelLoad)
                 //qDebug() << "**************** NOT FOUND **********************" << colPos << __FILE__ << __LINE__;
                 // create a dummmy item, so color of row can be uniform across;
                 QStandardItem *dummyItem = new QStandardItem("");
-                dummyItem->setData(senderID,senderIDRole);
+                dummyItem->setData(senderID,WorkSheetModel::senderIDRole);
                 dummyItem->setData(var);
                 if (modifyBackgroundColor)
                     dummyItem->setData(modBGColor, Qt::BackgroundRole);
-                setItem(rowPos,colPos,dummyItem);
+                model->setItem(rowPos,colPos,dummyItem);
             }
             colPos++;
         }
         rowPos++;
     }
-    int nMilliseconds = myTimer.elapsed();
-    qDebug() << "TIME TO LOAD = " << nMilliseconds;
 }
+
+
+

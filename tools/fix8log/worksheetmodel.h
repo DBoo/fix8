@@ -42,20 +42,26 @@ HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
 //#include <fix8/message.hpp>
 #include "tableschema.h"
 #include "messagefield.h"
+class WorkSheet;
 
 class WorkSheetModel : public QStandardItemModel
 {
+    Q_OBJECT
 public:
-    explicit WorkSheetModel(QObject *parent = 0);
+    explicit WorkSheetModel(QWidget *parent = 0);
     void setTableSchema(TableSchema &ts);
+    void setWorkSheet(WorkSheet *);
     void setMessageList( QMessageList *messageList,const bool &cancelLoad);
     QMessageList *getMessageList();
     WorkSheetModel *clone(const bool &cancelLoad);
     static int senderIDRole;
+signals:
+    void updateTable();
 private:
     void generateData(const bool &cancelLoad);
     TableSchema *tableSchema;
     QMessageList *messageList;
+    WorkSheet *workSheet;
 };
 
 #endif // WORKSHEETMODEL_H

@@ -35,7 +35,6 @@ Fix8SharedLib * Fix8SharedLib::create(QString fileName)
         return f8sl;
     }
     QFileInfo fi(fileName);
-    qDebug() << "FILE PATH + " << fi.absoluteFilePath() << __FILE__ << __LINE__;
     QString baseName = fi.baseName();
 #ifdef Q_OS_WIN
         f8sl->name = baseName;

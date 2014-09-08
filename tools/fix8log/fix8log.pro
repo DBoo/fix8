@@ -5,7 +5,7 @@
 #-------------------------------------------------
 
 CONFIG += debug_and_release
-QT       += xlsx core gui sql qml quick widgets quickwidgets script
+QT       += xlsx core gui sql qml quick widgets quickwidgets script concurrent
 TARGET = fix8logviewer
 TEMPLATE = app
 
@@ -69,7 +69,6 @@ SOURCES += main.cpp\
     newwindowwizard.cpp \
     embeddedfileselector.cpp \
     fix8Database.cpp \
-    fix8logLibraries.cpp \
     fix8sharedlib.cpp \
     newwindowschemapage.cpp \
     newwindowfilepage.cpp \
@@ -78,7 +77,8 @@ SOURCES += main.cpp\
     databaseFilterFunctions.cpp \
     workSheetFilters.cpp \
     logicFilter.cpp \
-    mainWindowExport.cpp
+    mainWindowExport.cpp \
+    threadloader.cpp
 
 
 HEADERS  += mainwindow.h \
@@ -128,7 +128,8 @@ HEADERS  += mainwindow.h \
     newwindowschemapage.h \
     newwindowfilepage.h \
     welcomepage.h \
-    logicFilter.h
+    logicFilter.h \
+    threadloader.h
 
 RESOURCES += \
     resources.qrc
