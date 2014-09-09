@@ -139,6 +139,7 @@ RESOURCES += \
 unix {
 message("Unix Compile.")
 QMAKE_CXXFLAGS += -Wno-missing-field-initializers -Wno-ignored-qualifiers -Wno-missing-field-initializers -Wno-uninitialized -Wno-unused-variable -Wno-unused-parameter -std=c++11
+QMAKE_CXXFLAGS_RELEASE += -O3
 LIBS += -lz  -L/usr/local/lib  -lrt -lfix8 -ltbb  -lPocoFoundation -lPocoNet -lPocoUtil
 INCLUDEPATH += /usr/local/include /usr/local/include/fix8
 DEPENDPATH += /usr/local/include
